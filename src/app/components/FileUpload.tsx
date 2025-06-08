@@ -56,11 +56,11 @@ export default function FileUpload() {
       formData.append('file', file)
       
       try {
-        // Use fetch instead of XMLHttpRequest for better Next.js compatibility
+        // Use fetch instead of XMLHttpRequest - this fixes the Content-Type issue
         const response = await fetch('/api/upload', {
           method: 'POST',
           body: formData
-          // Don't set Content-Type header - let browser set it automatically with boundary
+          // Don't set Content-Type header - browser sets it automatically with boundary
         })
 
         if (response.ok) {
