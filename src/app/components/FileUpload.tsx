@@ -47,7 +47,7 @@ export default function FileUpload() {
     // Initialize upload status for each file
     const initialStatuses: { [key: string]: UploadStatus } = {}
     acceptedFiles.forEach(file => {
-      initialStatuses[file.name] = { status: 'uploading', progress: 0 }
+      initialStatuses[file.name] = { status: 'uploading', progress: 50 }
     })
     setUploadStatuses(prev => ({ ...prev, ...initialStatuses }))
 
@@ -56,82 +56,58 @@ export default function FileUpload() {
       formData.append('file', file)
       
       try {
-        // Create XMLHttpRequest for progress tracking
-        const xhr = new XMLHttpRequest()
-        
-        // Track upload progress
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded / event.total) * 100)
-            setUploadStatuses(prev => ({
-              ...prev,
-              [file.name]: { ...prev[file.name], progress }
-            }))
-          }
+        // Use fetch instead of XMLHttpRequest for better Next.js compatibility
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+          // Don't set Content-Type header - let browser set it automatically with boundary
         })
 
-        // Handle completion
-        xhr.addEventListener('load', () => {
-          if (xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText)
-            
-            // Mark as success
-            setUploadStatuses(prev => ({
-              ...prev,
-              [file.name]: { 
-                status: 'success', 
-                progress: 100, 
-                message: 'Upload complete!' 
-              }
-            }))
-
-            // Add to uploaded files list
-            const newFile: UploadedFile = {
-              id: response.id,
-              fileName: response.filename,
-              originalName: response.originalName,
-              size: file.size,
-              type: file.type,
-              url: response.url,
-              uploadedAt: response.uploadedAt || new Date().toISOString()
+        if (response.ok) {
+          const result = await response.json()
+          
+          // Mark as success
+          setUploadStatuses(prev => ({
+            ...prev,
+            [file.name]: { 
+              status: 'success', 
+              progress: 100, 
+              message: 'Upload complete!' 
             }
-            setUploadedFiles(prev => [newFile, ...prev])
+          }))
 
-            // Clear status after 2 seconds
-            setTimeout(() => {
-              setUploadStatuses(prev => {
-                const newStatuses = { ...prev }
-                delete newStatuses[file.name]
-                return newStatuses
-              })
-            }, 2000)
-
-          } else {
-            // Mark as error
-            setUploadStatuses(prev => ({
-              ...prev,
-              [file.name]: { 
-                status: 'error', 
-                progress: 0, 
-                message: 'Upload failed' 
-              }
-            }))
+          // Add to uploaded files list
+          const newFile: UploadedFile = {
+            id: result.id,
+            fileName: result.filename,
+            originalName: result.originalName,
+            size: file.size,
+            type: file.type,
+            url: result.url,
+            uploadedAt: result.uploadedAt || new Date().toISOString()
           }
-        })
+          setUploadedFiles(prev => [newFile, ...prev])
 
-        xhr.addEventListener('error', () => {
+          // Clear status after 2 seconds
+          setTimeout(() => {
+            setUploadStatuses(prev => {
+              const newStatuses = { ...prev }
+              delete newStatuses[file.name]
+              return newStatuses
+            })
+          }, 2000)
+
+        } else {
+          const errorData = await response.json().catch(() => ({ error: 'Upload failed' }))
           setUploadStatuses(prev => ({
             ...prev,
             [file.name]: { 
               status: 'error', 
               progress: 0, 
-              message: 'Upload failed' 
+              message: errorData.error || 'Upload failed' 
             }
           }))
-        })
-
-        xhr.open('POST', '/api/upload')
-        xhr.send(formData)
+        }
         
       } catch (error) {
         console.error('Upload failed:', error)
