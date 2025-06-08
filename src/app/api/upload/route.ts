@@ -53,10 +53,12 @@ export async function POST(request: NextRequest) {
     // Return file info
     return NextResponse.json({
       id: fileId,
-      filename: file.name,
+      filename: fileName,
+      originalName: file.name,
       url: `/uploads/${fileName}`,
       size: file.size,
-      type: file.type
+      type: file.type,
+      uploadedAt: new Date().toISOString()
     })
 
   } catch (error) {
